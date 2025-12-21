@@ -6,19 +6,31 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
-local humanoid = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
-
+local humanoid = char:WaitForChild("Humanoid")
 local workspaceItems = workspace:WaitForChild("Items")
 
---// VARS
+--// VARIABLES
 local selectedItem = {}
-local cooldown = 0.2
+local cooldown = 0.3
+local infiniteJumpEnabled = false
 
-local lockSpeed = false
-local savedSpeed = humanoid.WalkSpeed
+-- Local Player Lock
+local autoSpeedEnabled = false
+local autoJumpEnabled = false
+local desiredWalkSpeed = humanoid.WalkSpeed
+local desiredJumpPower = humanoid.JumpPower
 
---// DRAG
+-- Kill / Tree / AutoTree / AutoBreak
+local killAuraEnabled = false
+local treeAuraEnabled = false
+local autoTreeFarmActive = false
+local autoTreeFarmThread
+local autoBreakActive = false
+local autoBreakSpeed = 1
+local autoBreakThread
+
+--// DRAG FUNCTIONS
 local function startDrag(item)
     pcall(function()
         ReplicatedStorage.RemoteEvents.RequestStartDraggingItem:FireServer(item)
@@ -31,218 +43,295 @@ local function stopDrag(item)
     end)
 end
 
---// BRING
-local function bringItem(item, pos)
+--// BRING FUNCTION
+local function bringItem(item, targetPos)
     if item.Name:find("Chest") then return end
-    local part = item:FindFirstChildWhichIsA("BasePart", true)
-    if not part then return end
-    local p = pos or (hrp.Position + Vector3.new(0,2,0))
-    if item:IsA("Model") and item.PrimaryPart then
-        item:SetPrimaryPartCFrame(CFrame.new(p))
-    else
-        part.Position = p
+    local part
+    for _,v in ipairs(item:GetDescendants()) do
+        if v:IsA("Part") or v:IsA("MeshPart") then
+            part = v
+            break
+        end
+    end
+    if part then
+        local pos = targetPos or (hrp.Position + Vector3.new(0,2,0))
+        if item:IsA("Model") and item.PrimaryPart then
+            item:SetPrimaryPartCFrame(CFrame.new(pos))
+        else
+            part.Position = pos
+        end
     end
 end
 
---// LUNA
+--// LUNA GUI
 local Luna = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/main/source.lua"
+    "https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/refs/heads/master/source.lua"
 ))()
 
 local Window = Luna:CreateWindow({
-    Name = "Bring Hub",
-    LogoID = nil,
-    LoadingEnabled = true
+    Name = "Derap Hub",
+    Subtitle = nil,
+    LogoID = "82795327169782",
+    LoadingEnabled = true,
+    LoadingTitle = "Derap Hub",
+    LoadingSubtitle = "by eror_404(and An_VN)",
+    ConfigSettings = { RootFolder = nil, ConfigFolder = "Derap Hub v1.3" },
+    KeySystem = false
 })
 
---// TAB BRING
-local Tab = Window:CreateTab({
-    Name = "Bring",
-    Icon = "inventory",
-    ImageSource = "Material"
-})
-
-Tab:CreateSlider({
-    Name = "Cooldown",
-    Range = {0.05,1},
-    Increment = 0.05,
+--// TAB: BRING
+local BringTab = Window:CreateTab({ Name = "Bring", Icon = "inventory", ImageSource = "Material", ShowTitle = true })
+BringTab:CreateSection("Settings")
+BringTab:CreateSlider({
+    Name = "Cooldown Bring Item",
+    Range = {0.001,1},
+    Increment = 0.001,
     CurrentValue = cooldown,
-    Callback = function(v)
-        cooldown = v
-    end
-})
+    Callback = function(v) cooldown = v end
+}, "BringCooldown")
 
 local itemCategories = {
-    "Sheet Metal","Iron Body","Large Iron Body","Bolt","Fuel","Apple","Berry",
-    "Bandage","Log","Sapling","Coin Stack","Wolf Pelt","Bear Pelt"
+    ["SẮT"] = {"Sheet Metal","Iron Body","Large Iron Body","Bolt","Old Car Engine","Washing Machine","Broken Microwave"},
+    ["FUEL"] = {"Fuel","Fuel Canister","Oil Barrel","Gunpowder"},
+    ["FOOD"] = {"Apple","Berry","Carrot","Morsel","Cooked Morsel","Steak","Cooked Steak"},
+    ["KHÁC"] = {"Bandage","Log","Sapling","Coin Stack","Wolf Pelt","Bear Pelt","Cultist Gem","Hologram Emitter"}
 }
+local dropdownOptions = {}
+for _,items in pairs(itemCategories) do
+    for _,name in ipairs(items) do table.insert(dropdownOptions,name) end
+end
 
-Tab:CreateDropdown({
+BringTab:CreateDropdown({
     Name = "Chọn Item",
-    Options = itemCategories,
+    Options = dropdownOptions,
+    CurrentOption = {},
     MultipleOptions = true,
-    CurrentOption = nil,
-    Callback = function(opt)
-        selectedItem = opt or {}
-    end
-})
+    Callback = function(opt) selectedItem = opt end
+}, "ItemDropdown")
 
-Tab:CreateButton({
-    Name = "BRING",
-    Callback = function()
-        for _,name in ipairs(selectedItem) do
-            for _,item in ipairs(workspaceItems:GetChildren()) do
-                if item.Name == name then
-                    bringItem(item)
-                    startDrag(item)
-                    task.wait(cooldown)
-                    stopDrag(item)
-                end
+BringTab:CreateSection("Actions")
+BringTab:CreateButton({ Name = "BRING", Callback = function()
+    if not selectedItem or #selectedItem==0 then return warn("Chưa chọn item") end
+    for _, selName in ipairs(selectedItem) do
+        for _, item in ipairs(workspaceItems:GetChildren()) do
+            if not item.Name:find("Chest") and item.Name==selName then
+                bringItem(item)
+                startDrag(item)
+                task.wait(cooldown)
+                stopDrag(item)
             end
         end
     end
-})
+end})
 
-Tab:CreateButton({
-    Name = "BRING ALL",
-    Callback = function()
-        for _,item in ipairs(workspaceItems:GetChildren()) do
+BringTab:CreateButton({ Name = "BRING ALL", Callback = function()
+    for _,item in ipairs(workspaceItems:GetChildren()) do
+        if not item.Name:find("Chest") then
             bringItem(item)
             startDrag(item)
             task.wait(cooldown)
             stopDrag(item)
         end
     end
-})
+end})
 
-Tab:CreateButton({
-    Name = "Infinite HP",
-    Callback = function()
-        loadstring(game:HttpGet(
-            "https://rawscripts.net/raw/99-Nights-in-the-Forest-Inf-Health-54808"
-        ))()
+BringTab:CreateButton({ Name = "TP Item To Campfire", Callback = function()
+    local camp = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Campground") and workspace.Map.Campground:FindFirstChild("MainFire") and workspace.Map.Campground.MainFire:FindFirstChild("Center")
+    if not camp then return end
+    local actualCooldown = math.max(cooldown,0.05)
+    for _,item in ipairs(workspaceItems:GetChildren()) do
+        if not item.Name:find("Chest") and (#selectedItem==0 or table.find(selectedItem,item.Name)) then
+            bringItem(item,camp.Position+Vector3.new(0,3,0))
+            startDrag(item)
+            task.wait(actualCooldown)
+            stopDrag(item)
+        end
+    end
+end})
+
+BringTab:CreateButton({ Name = "Infinite HP", Callback = function()
+    loadstring(game:HttpGet("https://rawscripts.net/raw/99-Nights-in-the-Forest-Inf-Health-54808"))()
+end})
+
+--// TAB: LOCAL PLAYER
+local PlayerTab = Window:CreateTab({ Name="Local Player", Icon="person", ImageSource="Material", ShowTitle=true })
+PlayerTab:CreateSection("Movement")
+PlayerTab:CreateSlider({ Name="WalkSpeed", Range={16,500}, Increment=1, CurrentValue=humanoid.WalkSpeed, Callback=function(v)
+    desiredWalkSpeed = v
+    humanoid.WalkSpeed = v
+end})
+PlayerTab:CreateSlider({ Name="JumpPower", Range={50,500}, Increment=1, CurrentValue=humanoid.JumpPower, Callback=function(v)
+    desiredJumpPower = v
+    humanoid.JumpPower = v
+end})
+PlayerTab:CreateToggle({ Name="Lock WalkSpeed", CurrentValue=false, Callback=function(state) autoSpeedEnabled=state end })
+PlayerTab:CreateToggle({ Name="Lock JumpPower", CurrentValue=false, Callback=function(state) autoJumpEnabled=state end })
+PlayerTab:CreateToggle({ Name="Infinite Jump", CurrentValue=false, Callback=function(v) infiniteJumpEnabled=v end })
+
+UserInputService.JumpRequest:Connect(function()
+    if infiniteJumpEnabled and humanoid and humanoid.Parent then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+--// TAB: AURA
+local AuraTab = Window:CreateTab({ Name = "Aura", Icon = "flash_on", ImageSource = "Material", ShowTitle = true })
+AuraTab:CreateSection("Aura")
+AuraTab:CreateToggle({ Name="Kill Aura", CurrentValue=false, Callback=function(v) killAuraEnabled=v end })
+AuraTab:CreateToggle({ Name="Tree Aura", CurrentValue=false, Callback=function(v) treeAuraEnabled=v end })
+
+--// TAB: SETTING
+local SettingTab = Window:CreateTab({ Name="Setting", Icon="settings", ImageSource="Material", ShowTitle=true })
+SettingTab:CreateDropdown({
+    Name = "Language / Ngôn ngữ",
+    Options = {"Vietnamese","English"},
+    CurrentOption = "Vietnamese",
+    Callback = function(opt)
+        -- thêm logic đổi tab title nếu muốn
     end
 })
 
-Tab:CreateButton({
-    Name = "Copy Discord",
-    Callback = function()
-        setclipboard("https://discord.gg/BV7vp2APC2")
-    end
-})
+--// HOME TAB
+Window:CreateHomeTab({ SupportedExecutors={}, DiscordInvite="https://discord.gg/BV7vp2APC2", Icon=1 })
 
---// PLAYER TAB
-local PlayerTab = Window:CreateTab({
-    Name = "Player",
-    Icon = "person",
-    ImageSource = "Material"
-})
-
-PlayerTab:CreateSlider({
-    Name = "WalkSpeed",
-    Range = {16,300},
-    Increment = 1,
-    CurrentValue = humanoid.WalkSpeed,
-    Callback = function(v)
-        savedSpeed = v
-        humanoid.WalkSpeed = v
-    end
-})
-
-PlayerTab:CreateToggle({
-    Name = "Lock Speed",
-    Default = false,
-    Callback = function(v)
-        lockSpeed = v
-    end
-})
-
-PlayerTab:CreateSlider({
-    Name = "JumpPower",
-    Range = {50,300},
-    Increment = 5,
-    CurrentValue = humanoid.JumpPower,
-    Callback = function(v)
-        humanoid.JumpPower = v
-    end
-})
-
---// SPEED LOCK (CHẾT / RESET VẪN GIỮ)
+--// AUTO SPEED / JUMP MAINTAIN
 RunService.Heartbeat:Connect(function()
-    if lockSpeed and humanoid then
-        humanoid.WalkSpeed = savedSpeed
+    if autoSpeedEnabled and humanoid and humanoid.Parent and humanoid.WalkSpeed~=desiredWalkSpeed then
+        humanoid.WalkSpeed = desiredWalkSpeed
+    end
+    if autoJumpEnabled and humanoid and humanoid.Parent and humanoid.JumpPower~=desiredJumpPower then
+        humanoid.JumpPower = desiredJumpPower
     end
 end)
 
 player.CharacterAdded:Connect(function(c)
-    char = c
-    humanoid = c:WaitForChild("Humanoid")
-    hrp = c:WaitForChild("HumanoidRootPart")
-    humanoid.WalkSpeed = savedSpeed
+    char=c
+    humanoid=char:WaitForChild("Humanoid")
+    hrp=char:WaitForChild("HumanoidRootPart")
+    if autoSpeedEnabled then humanoid.WalkSpeed=desiredWalkSpeed end
+    if autoJumpEnabled then humanoid.JumpPower=desiredJumpPower end
 end)
 
---// AUTO TREE FARM (GIỮ NGUYÊN CODE BẠN)
-local autoTreeFarmActive = false
-local autoTreeFarmThread
-
-local AuraTab = Window:CreateTab({
-    Name = "Auto",
-    Icon = "flash_on",
-    ImageSource = "Material"
-})
-
-AuraTab:CreateToggle({
-    Name = "Auto Tree Farm",
-    Default = false,
-    Callback = function(state)
-        autoTreeFarmActive = state
-        if state then
-            autoTreeFarmThread = task.spawn(function()
-                local ToolDamageObject = ReplicatedStorage.RemoteEvents.ToolDamageObject
-                local Backpack = player:WaitForChild("Backpack")
-
-                local function getTrees()
-                    local map = workspace:FindFirstChild("Map")
-                    if not map then return {} end
-                    local fol = map:FindFirstChild("Foliage") or map:FindFirstChild("Landmarks")
-                    if not fol then return {} end
-                    local t = {}
-                    for _,v in ipairs(fol:GetChildren()) do
-                        if v.Name == "Small Tree" then
-                            local trunk = v:FindFirstChild("Trunk")
-                            if trunk then
-                                table.insert(t,{tree=v,trunk=trunk})
-                            end
-                        end
-                    end
-                    return t
-                end
-
-                local function getAxe()
-                    local inv = player:FindFirstChild("Inventory")
-                    return inv and inv:FindFirstChildWhichIsA("Tool")
-                end
-
-                while autoTreeFarmActive do
-                    for _,t in ipairs(getTrees()) do
-                        if not autoTreeFarmActive then break end
-                        local axe = getAxe()
-                        if axe then
-                            axe.Parent = char
-                            hrp.CFrame = t.trunk.CFrame * CFrame.new(3,0,0)
-                            ToolDamageObject:InvokeServer(
-                                t.tree, axe, "1_8264699301", t.trunk.CFrame
-                            )
-                        end
-                        task.wait(1)
-                    end
-                end
-            end)
-        else
-            if autoTreeFarmThread then
-                task.cancel(autoTreeFarmThread)
-                autoTreeFarmThread = nil
+--// KILL / TREE LOGIC
+RunService.Heartbeat:Connect(function()
+    if killAuraEnabled then
+        for _,v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("Humanoid") and v.Parent~=char then
+                v.Health=0
             end
         end
     end
+    if treeAuraEnabled then
+        for _,tree in ipairs(workspace:GetChildren()) do
+            if tree.Name:find("Tree") then tree:Destroy() end
+        end
+    end
+end)
+
+--// AUTO TREE FARM
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ToolDamageObject = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("ToolDamageObject")
+
+SettingTab:CreateToggle({
+    Name="Auto Tree Farm",
+    CurrentValue=false,
+    Callback=function(state)
+        autoTreeFarmActive=state
+        if state then
+            autoTreeFarmThread = task.spawn(function()
+                local LocalPlayer = Players.LocalPlayer
+                local Backpack = LocalPlayer:WaitForChild("Backpack")
+                local function getAllTrees()
+                    local map = workspace:FindFirstChild("Map")
+                    if not map then return {} end
+                    local landmarks = map:FindFirstChild("Landmarks") or map:FindFirstChild("Foliage")
+                    if not landmarks then return {} end
+                    local trees = {}
+                    for _,tree in ipairs(landmarks:GetChildren()) do
+                        if tree.Name=="Small Tree" and tree:IsA("Model") and tree.Parent then
+                            local trunk = tree:FindFirstChild("Trunk") or tree.PrimaryPart
+                            if trunk then table.insert(trees,{tree=tree,trunk=trunk}) end
+                        end
+                    end
+                    return trees
+                end
+                local function getAxe()
+                    local inv = LocalPlayer:FindFirstChild("Inventory")
+                    if not inv then return nil end
+                    return inv:FindFirstChild("Old Axe") or inv:FindFirstChildWhichIsA("Tool")
+                end
+                while autoTreeFarmActive do
+                    local trees = getAllTrees()
+                    for _,t in ipairs(trees) do
+                        if not autoTreeFarmActive then break end
+                        if t.tree and t.tree.Parent then
+                            local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                            local hrp = char:FindFirstChild("HumanoidRootPart",3)
+                            if hrp and t.trunk then
+                                local treeCFrame = t.trunk.CFrame
+                                local targetPosition = treeCFrame.Position + treeCFrame.RightVector * 3
+                                hrp.CFrame = CFrame.new(targetPosition)
+                                task.wait(0.25)
+                                local axe = getAxe()
+                                if axe then
+                                    if axe.Parent==Backpack then axe.Parent=char task.wait(0.15) end
+                                    while t.tree.Parent and autoTreeFarmActive do
+                                        pcall(function() axe:Activate() end)
+                                        pcall(function() ToolDamageObject:InvokeServer(t.tree,axe,"1_8264699301",t.trunk.CFrame) end)
+                                        task.wait(1)
+                                    end
+                                end
+                            end
+                        end
+                        task.wait(0.5)
+                    end
+                    task.wait(1)
+                end
+            end)
+        else
+            if autoTreeFarmThread then task.cancel(autoTreeFarmThread) autoTreeFarmThread=nil end
+        end
+    end
 })
+
+--// AUTO HIT / AUTO BREAK
+SettingTab:CreateSlider({
+    Title="Auto Hit Speed",
+    Min=0.1, Max=2, Default=1,
+    Callback=function(val) autoBreakSpeed=val end
+})
+SettingTab:CreateToggle({
+    Title="Auto Hit (Auto Break)",
+    Default=false,
+    Callback=function(state)
+        autoBreakActive=state
+        if state then
+            autoBreakThread = task.spawn(function()
+                local camera = workspace.CurrentCamera
+                local player = Players.LocalPlayer
+                local function getWeapon()
+                    local inv = player:FindFirstChild("Inventory")
+                    return inv and (inv:FindFirstChild("Spear") or inv:FindFirstChild("Strong Axe") or inv:FindFirstChild("Good Axe") or inv:FindFirstChild("Old Axe"))
+                end
+                while autoBreakActive do
+                    local weapon = getWeapon()
+                    if weapon then
+                        local ray = workspace:Raycast(camera.CFrame.Position,camera.CFrame.LookVector*15)
+                        if ray and ray.Instance and ray.Instance.Name=="Trunk" then
+                            pcall(function() ToolDamageObject:InvokeServer(ray.Instance.Parent,weapon,"4_7591937906",CFrame.new(ray.Position)) end)
+                        end
+                    end
+                    task.wait(autoBreakSpeed)
+                end
+            end)
+        else
+            if autoBreakThread then task.cancel(autoBreakThread) autoBreakThread=nil end
+        end
+    end
+})
+
+-- Build Themes
+BringTab:BuildThemeSection()
+PlayerTab:BuildThemeSection()
+AuraTab:BuildThemeSection()
+SettingTab:BuildThemeSection()
