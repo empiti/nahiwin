@@ -73,7 +73,7 @@ local Window = Luna:CreateWindow({
     Subtitle = nil,
     LogoID = "82795327169782",
     LoadingEnabled = true,
-    LoadingTitle = "Derap Hub",
+    LoadingTitle = "Derap Hub(beta)",
     LoadingSubtitle = "by eror_404(and An_VN)",
     ConfigSettings = { RootFolder = nil, ConfigFolder = "Derap Hub v1.3" },
     KeySystem = false
@@ -91,7 +91,7 @@ BringTab:CreateSlider({
 }, "BringCooldown")
 
 local itemCategories = {
-    ["SẮT"] = {"Sheet Metal","Iron Body","Large Iron Body","Bolt","Old Car Engine","Washing Machine","Broken Microwave"},
+    ["SẮT"] = {"Sheet Metal","Old radio","Bolt","Old Car Engine","Washing Machine","Broken Microwave"},
     ["FUEL"] = {"Fuel","Fuel Canister","Oil Barrel","Gunpowder"},
     ["FOOD"] = {"Apple","Berry","Carrot","Morsel","Cooked Morsel","Steak","Cooked Steak"},
     ["KHÁC"] = {"Bandage","Log","Sapling","Coin Stack","Wolf Pelt","Bear Pelt","Cultist Gem","Hologram Emitter"}
