@@ -1,6 +1,3 @@
---// SID SIMPLE OBFUSCATION (ANTI-KID)
---// Không hash MD5, không phá logic, chỉ làm rối code
-
 local SRC = [==[ --// SERVICES
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -267,9 +264,7 @@ RunService.Heartbeat:Connect(function()
                 local axe = player.Backpack:FindFirstChildWhichIsA("Tool") or char:FindFirstChildWhichIsA("Tool")
                 if axe then
                     pcall(function() attackRemote:InvokeServer(tree,axe,"1_8264699301",tree.PrimaryPart.CFrame) end)
-                end
-            end
-        end
+                      end
     end
 end)
 
