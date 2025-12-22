@@ -1,5 +1,4 @@
-local SRC = [==[ 
---// SERVICES
+ --// SERVICES
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -375,29 +374,3 @@ BringTab:BuildThemeSection()
 PlayerTab:BuildThemeSection()
 AuraTab:BuildThemeSection()
 SettingTab:BuildThemeSection()
-]==]
-
-local function _d(s)
-    local t = {}
-    for i = 1, #s do
-        t[i] = string.char(string.byte(s, i) ~ 23)
-    end
-    return table.concat(t)
-end
-
-local function _e(s)
-    local t = {}
-    for i = 1, #s do
-        t[i] = string.char(string.byte(s, i) ~ 23)
-    end
-    return table.concat(t)
-end
-
-local _payload = _e(SRC)
-
-local _loader = loadstring(_d(_payload))
-if _loader then
-    return _loader()
-else
-    warn("SID loader failed")
-end
