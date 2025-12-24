@@ -15,7 +15,7 @@ local selectedItem = {}
 local cooldown = 0.3
 local infiniteJumpEnabled = false
 
--- Local Player Lock
+-- speed
 local autoSpeedEnabled = false
 local autoJumpEnabled = false
 local desiredWalkSpeed = humanoid.WalkSpeed
@@ -65,7 +65,6 @@ local function bringItem(item, targetPos)
     end
 end
 
---// LUNA GUI
 local Luna = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/refs/heads/master/source.lua"
 ))()
@@ -154,7 +153,6 @@ end})
 BringTab:CreateButton({ Name = "Infinite HP", Callback = function()
     loadstring(game:HttpGet("https://rawscripts.net/raw/99-Nights-in-the-Forest-Inf-Health-54808"))()
 end})
-
 --// TAB: LOCAL PLAYER
 local PlayerTab = Window:CreateTab({ Name="Local Player", Icon="person", ImageSource="Material", ShowTitle=true })
 PlayerTab:CreateSection("Movement")
@@ -169,7 +167,10 @@ end})
 PlayerTab:CreateToggle({ Name="Lock WalkSpeed", CurrentValue=false, Callback=function(state) autoSpeedEnabled=state end })
 PlayerTab:CreateToggle({ Name="Lock JumpPower", CurrentValue=false, Callback=function(state) autoJumpEnabled=state end })
 PlayerTab:CreateToggle({ Name="Infinite Jump", CurrentValue=false, Callback=function(v) infiniteJumpEnabled=v end })
-
+PlayerTab:CreateToggle({ Name="Fly", CurrentValue=false, Callback=function(v) FlyEnabled=v end })
+local Fly = loadstring(game:HttpGet(
+"https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"
+))()
 UserInputService.JumpRequest:Connect(function()
     if infiniteJumpEnabled and humanoid and humanoid.Parent then
         humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
