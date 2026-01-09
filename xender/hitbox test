@@ -1,0 +1,168 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local plr = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui", plr.PlayerGui)
+gui.Name = "HitboxGUI"
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0,180,0,130)
+frame.Position = UDim2.new(0.5,-90,0.5,-65)
+frame.BackgroundColor3 = Color3.fromRGB(20,25,30)
+frame.BorderSizePixel = 0
+frame.Active = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,10)
+
+local top = Instance.new("Frame", frame)
+top.Size = UDim2.new(1,0,0,28)
+top.BackgroundColor3 = Color3.fromRGB(30,35,40)
+top.BorderSizePixel = 0
+top.Active = true
+Instance.new("UICorner", top).CornerRadius = UDim.new(0,10)
+
+local title = Instance.new("TextLabel", top)
+title.Size = UDim2.new(1,-40,1,0)
+title.Position = UDim2.new(0,10,0,0)
+title.BackgroundTransparency = 1
+title.Text = "HITBOX"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.TextColor3 = Color3.fromRGB(0,255,200)
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local minBtn = Instance.new("TextButton", top)
+minBtn.Size = UDim2.new(0,24,0,20)
+minBtn.Position = UDim2.new(1,-30,0.5,-10)
+minBtn.Text = "_"
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextSize = 16
+minBtn.BackgroundColor3 = Color3.fromRGB(0,170,200)
+minBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", minBtn)
+
+local sizeBox = Instance.new("TextBox", frame)
+sizeBox.Size = UDim2.new(0.8,0,0,30)
+sizeBox.Position = UDim2.new(0.1,0,0,45)
+sizeBox.Text = "0"
+sizeBox.Font = Enum.Font.GothamBold
+sizeBox.TextSize = 16
+sizeBox.BackgroundColor3 = Color3.fromRGB(30,35,40)
+sizeBox.TextColor3 = Color3.fromRGB(0,255,200)
+Instance.new("UICorner", sizeBox)
+
+local icon = Instance.new("ImageButton", gui)
+icon.Size = UDim2.new(0,48,0,48)
+icon.Position = UDim2.new(0.05,0,0.5,-24)
+icon.Image = "rbxassetid://82795327169782"
+icon.BackgroundTransparency = 1
+icon.Visible = false
+
+do
+	local dragging, dragStart, startPos
+	top.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = frame.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			frame.Position = UDim2.new(startPos.X.Scale,startPos.X.Offset + delta.X,startPos.Y.Scale,startPos.Y.Offset + delta.Y)
+		end
+	end)
+end
+
+do
+	local dragging, dragStart, startPos
+	icon.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = icon.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			icon.Position = UDim2.new(startPos.X.Scale,startPos.X.Offset + delta.X,startPos.Y.Scale,startPos.Y.Offset + delta.Y)
+		end
+	end)
+end
+
+minBtn.MouseButton1Click:Connect(function()
+	frame.Visible = false
+	icon.Visible = true
+end)
+
+icon.MouseButton1Click:Connect(function()
+	frame.Visible = true
+	icon.Visible = false
+end)
+
+local vis
+
+local function createHitbox()
+	if vis then vis:Destroy() end
+	vis = Instance.new("Part", Workspace)
+	vis.Anchored = true
+	vis.CanCollide = false
+	vis.Transparency = 1
+	vis.Size = Vector3.new(1,1,1)
+end
+
+local function hit(p,h)
+	local c = p.Parent
+	local hum = c and c:FindFirstChildOfClass("Humanoid")
+	if hum and c ~= plr.Character then
+		for _,part in pairs(c:GetChildren()) do
+			if part:IsA("BasePart") then
+				firetouchinterest(part,h,0)
+				firetouchinterest(part,h,1)
+			end
+		end
+	end
+end
+
+RunService.RenderStepped:Connect(function()
+	local tool = plr.Character and plr.Character:FindFirstChildOfClass("Tool")
+	if not tool then
+		if vis then vis:Destroy() vis=nil end
+		return
+	end
+
+	local h = tool:FindFirstChild("Handle")
+	if not h then return end
+	if not vis then createHitbox() end
+
+	local r = tonumber(sizeBox.Text) or 0
+	r = math.clamp(r,0,2000)
+	sizeBox.Text = tostring(r)
+
+	vis.CFrame = h.CFrame
+	vis.Size = Vector3.new(math.max(r,1),math.max(r,1),math.max(r,1))
+
+	for _,v in pairs(Players:GetPlayers()) do
+		if v ~= plr and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+			local hrp = v.Character.HumanoidRootPart
+			if (hrp.Position - h.Position).Magnitude <= r then
+				pcall(function() hit(hrp,h) end)
+			end
+		end
+	end
+end)
